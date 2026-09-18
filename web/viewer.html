@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>splat-viewer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a1a; color: #e0e0e0; }
+  #controls {
+    position: absolute; top: 10px; left: 10px; z-index: 10;
+    background: rgba(20, 20, 40, 0.9); padding: 12px; border-radius: 8px;
+    display: flex; flex-direction: column; gap: 8px; max-width: 280px;
+  }
+  #controls input[type="text"] {
+    padding: 6px 10px; border: 1px solid #444; border-radius: 4px;
+    background: #1a1a2e; color: #e0e0e0; font-size: 13px; width: 100%;
+  }
+  #controls label { font-size: 12px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  #controls button {
+    padding: 6px 12px; border: 1px solid #555; border-radius: 4px;
+    background: #2a2a4a; color: #e0e0e0; cursor: pointer; font-size: 12px;
+  }
+  #controls button:hover { background: #3a3a5a; }
+  #perfNotice {
+    display: none; padding: 6px 8px; background: rgba(213, 94, 0, 0.3);
+    border-radius: 4px; font-size: 11px; color: #E69F00;
+  }
+  #legend {
+    position: absolute; bottom: 10px; left: 10px; z-index: 10;
+    background: rgba(20, 20, 40, 0.9); padding: 12px; border-radius: 8px;
+    font-size: 11px; line-height: 1.8;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; }
+  .legend-shape { width: 14px; height: 14px; display: inline-block; }
+  .sphere { border-radius: 50%; background: #56B4E9; }
+  .octahedron { background: #888; transform: rotate(45deg); width: 12px; height: 12px; opacity: 0.5; }
+  .cube { background: #E69F00; border-radius: 2px; }
+  .icosahedron { border-radius: 50%; background: #56B4E9; box-shadow: 0 0 6px 2px #56B4E9; }
+  #info {
+    position: absolute; top: 10px; right: 10px; z-index: 10;
+    background: rgba(20, 20, 40, 0.95); padding: 16px; border-radius: 8px;
+    max-width: 400px; font-size: 12px; display: none; max-height: 80vh; overflow-y: auto;
+  }
+  #info h3 { margin-bottom: 8px; font-size: 14px; }
+  #info .field { margin: 4px 0; }
+  #info .label { color: #888; }
+  #info .edge-list { margin: 4px 0 4px 8px; font-size: 11px; }
+  #info .edge-list div { margin: 2px 0; padding: 2px 4px; border-radius: 3px; }
+  #info .edge-list .replaces { border-left: 3px solid #56B4E9; }
+  #info .edge-list .skips { border-left: 3px solid #E69F00; }
+  #info .edge-list .skipRange { border-left: 3px solid #D55E00; }
+  #info .edge-list .crossRelease { border-left: 3px solid #009E73; }
+  #info .edge-list .packageDep { border-left: 3px solid #555; }
+  #graph { width: 100vw; height: 100vh; }
+  #loading {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    z-index: 20; text-align: center; font-size: 16px; color: #88CCEE;
+  }
+  #loading .spinner { font-size: 28px; animation: spin 1.5s linear infinite; display: inline-block; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="loading">
+  <div class="spinner">&#10043;</div>
+  <div id="loadMsg">Loading catalog data...</div>
+</div>
+<div id="controls" style="display:none">
+  <input type="text" id="search" placeholder="Filter by package name...">
+  <label><input type="checkbox" id="showDeprecated" checked> Show deprecated</label>
+  <label><input type="checkbox" id="showDeps" checked> Show dependency edges</label>
+  <button id="resetBtn">Reset View</button>
+  <div id="perfNotice"></div>
+</div>
+<div id="legend" style="display:none">
+  <div class="legend-item"><span class="legend-shape sphere"></span> Active bundle</div>
+  <div class="legend-item"><span class="legend-shape icosahedron"></span> Channel head (latest)</div>
+  <div class="legend-item"><span class="legend-shape octahedron"></span> Deprecated</div>
+  <div class="legend-item"><span class="legend-shape cube"></span> maxOpenShiftVersion set</div>
+  <div class="legend-item"><span class="legend-shape sphere" style="opacity:0.3"></span> Skipped (v0 semantics)</div>
+  <div class="legend-item"><span class="legend-shape sphere" style="opacity:0.25;border:1px dashed #aaa"></span> Phantom (inferred)</div>
+  <div class="legend-item"><span style="display:inline-block;width:20px;height:2px;background:#56B4E9"></span> replaces</div>
+  <div class="legend-item"><span style="display:inline-block;width:20px;height:1px;background:#E69F00"></span> skips</div>
+  <div class="legend-item"><span style="display:inline-block;width:20px;height:1px;background:#D55E00"></span> skipRange</div>
+  <div class="legend-item"><span style="display:inline-block;width:20px;height:2px;background:#009E73"></span> cross-release</div>
+  <div class="legend-item"><span style="display:inline-block;width:20px;height:1px;background:#888"></span> dependency</div>
+</div>
+<div id="info">
+  <h3 id="infoTitle"></h3>
+  <div id="infoBody"></div>
+</div>
+<div id="graph"></div>
+
+<script src="https://unpkg.com/3d-force-graph@1"></script>
+<script src="https://unpkg.com/three@0.175.0/build/three.module.js" type="module"></script>
+<script type="module">
+import * as THREE from 'https://unpkg.com/three@0.175.0/build/three.module.js';
+
+const PALETTE = ['#0072B2','#E69F00','#009E73','#CC79A7','#332288','#88CCEE','#44AA99','#999933','#AA4499','#DDCC77'];
+const groupColorMap = {};
+let colorIdx = 0;
+function colorByGroup(group) {
+  if (!groupColorMap[group]) groupColorMap[group] = PALETTE[colorIdx++ % PALETTE.length];
+  return groupColorMap[group];
+}
+
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const Z_SPACING = 200;
+
+let allData = null;
+let rawData = null;
+let graph = null;
+let releaseLabels = [];
+
+async function init() {
+  const loadTimer = setTimeout(() => {
+    document.getElementById('loadMsg').textContent = 'Still loading... large catalogs may take 30+ seconds.';
+  }, 5000);
+
+  try {
+    const embedded = document.getElementById('graph-data');
+    if (embedded && embedded.textContent.trim()) {
+      allData = JSON.parse(embedded.textContent);
+    } else {
+      const resp = await fetch('/api/graph');
+      allData = await resp.json();
+    }
+  } finally {
+    clearTimeout(loadTimer);
+  }
+
+  // Keep a clean deep copy — 3d-force-graph mutates node/link objects in place
+  rawData = JSON.parse(JSON.stringify(allData));
+
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('controls').style.display = '';
+  document.getElementById('legend').style.display = '';
+  renderGraph(allData);
+}
+
+function renderGraph(data) {
+  const container = document.getElementById('graph');
+  container.innerHTML = '';
+  releaseLabels.forEach(l => l.parent && l.parent.remove(l));
+  releaseLabels = [];
+
+  const isLargeGraph = data.nodes.length > 2000;
+  const seg = isLargeGraph ? 6 : 16;
+
+  graph = ForceGraph3D()(container)
+    .graphData(data)
+    .nodeThreeObject(node => {
+      let geometry, size;
+
+      if (node.phantom) {
+        size = 3;
+        geometry = new THREE.SphereGeometry(size, 6, 4);
+      } else if (node.isChannelHead) {
+        size = isLargeGraph ? 5 : 7;
+        geometry = new THREE.IcosahedronGeometry(size);
+      } else if (node.deprecated) {
+        size = isLargeGraph ? 3 : 5;
+        geometry = new THREE.OctahedronGeometry(size);
+      } else if (node.maxOpenShiftVersion) {
+        size = isLargeGraph ? 6 : 9;
+        geometry = new THREE.BoxGeometry(size, size, size);
+      } else {
+        size = isLargeGraph ? 3 : 5;
+        geometry = new THREE.SphereGeometry(size, seg, seg / 2);
+      }
+
+      const hex = colorByGroup(node.group);
+      const color = new THREE.Color(hex);
+      let opacity = 0.85;
+      if (node.phantom) opacity = 0.2;
+      else if (node.deprecated) opacity = 0.3;
+      else if (node.skipped) opacity = 0.35;
+
+      const material = new THREE.MeshLambertMaterial({
+        color,
+        transparent: true,
+        opacity,
+        wireframe: node.phantom,
+      });
+      if (node.isChannelHead) {
+        material.emissive = color.clone();
+        material.emissiveIntensity = 0.4;
+      }
+      return new THREE.Mesh(geometry, material);
+    })
+    .nodeLabel(node => {
+      if (node.phantom) return `<b>${node.bundleName}</b><br><i>Not in this catalog (inferred from upgrade edge)</i>`;
+      return `<b>${node.package}</b> ${node.version}<br>Release: ${node.release}${node.channels ? '<br>Channels: ' + node.channels.join(', ') : ''}${node.maxOpenShiftVersion ? '<br>maxOCP: ' + node.maxOpenShiftVersion : ''}${node.deprecated ? '<br><i>DEPRECATED</i>' : ''}${node.skipped ? '<br><i>SKIPPED (v0)</i>' : ''}`;
+    })
+    .linkColor(link => {
+      if (isDep(link)) return '#555555';
+      if (link.type === 'crossRelease') return '#009E73';
+      if (link.type === 'skipRange') return '#D55E00';
+      if (link.type === 'skips') return '#E69F00';
+      return '#56B4E9';
+    })
+    .linkWidth(link => {
+      if (isDep(link)) return 0.3;
+      if (link.type === 'crossRelease') return 1.2;
+      if (link.type === 'skipRange') return 0.4;
+      return 0.8;
+    })
+    .linkOpacity(0.6)
+    .onNodeClick(node => {
+      showInfo(node, graph.graphData());
+      const dist = 120;
+      graph.cameraPosition(
+        { x: node.x + dist, y: node.y + dist / 2, z: node.z + dist },
+        { x: node.x, y: node.y, z: node.z },
+        1500
+      );
+    })
+    .onBackgroundClick(() => hideInfo())
+    .backgroundColor('#0a0a1a')
+    .enableNodeDrag(false)
+    .cooldownTicks(0);
+
+  const notice = document.getElementById('perfNotice');
+  if (isLargeGraph) {
+    notice.textContent = `Large graph (${data.nodes.length} nodes): use search to filter for best performance.`;
+    notice.style.display = 'block';
+  } else {
+    notice.style.display = 'none';
+  }
+
+  // Z-plane release labels
+  if (allData && allData.releases && allData.releases.length > 1) {
+    setTimeout(() => addReleaseLabels(allData.releases), 500);
+  }
+}
+
+function addReleaseLabels(releases) {
+  const scene = graph.scene();
+  releases.forEach((rel, i) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#88CCEE';
+    ctx.font = 'bold 36px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(rel, 128, 44);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.7 });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(60, 15, 1);
+    sprite.position.set(-180, 80, i * Z_SPACING);
+    scene.add(sprite);
+    releaseLabels.push(sprite);
+  });
+}
+
+function isDep(link) {
+  return link.type === 'packageDep' || link.type === 'gvkDep';
+}
+
+function getNodeId(nodeOrId) {
+  return typeof nodeOrId === 'object' ? nodeOrId.id : nodeOrId;
+}
+
+function showInfo(node, data) {
+  const info = document.getElementById('info');
+  const title = document.getElementById('infoTitle');
+  const body = document.getElementById('infoBody');
+
+  if (node.phantom) {
+    title.textContent = node.bundleName;
+    body.innerHTML = '<div class="field"><i>Phantom node — not present in this catalog. Inferred from an upgrade edge.</i></div>';
+    info.style.display = 'block';
+    return;
+  }
+
+  title.textContent = `${node.package} ${node.version}`;
+
+  // Find connected edges
+  const incoming = [];
+  const outgoing = [];
+  for (const l of data.links) {
+    const srcId = getNodeId(l.source);
+    const tgtId = getNodeId(l.target);
+    if (tgtId === node.id) incoming.push({ ...l, peerId: srcId });
+    if (srcId === node.id) outgoing.push({ ...l, peerId: tgtId });
+  }
+
+  const nodeMap = {};
+  for (const n of data.nodes) nodeMap[n.id] = n;
+
+  function edgeHtml(edges, direction) {
+    if (edges.length === 0) return '';
+    const items = edges.map(e => {
+      const peer = nodeMap[e.peerId];
+      const peerLabel = peer ? (peer.phantom ? peer.bundleName : `${peer.package} ${peer.version}`) : e.peerId;
+      const label = e.label ? ` (${e.label})` : '';
+      return `<div class="${e.type}">${direction} ${peerLabel} <span class="label">[${e.type}]${label}</span></div>`;
+    }).join('');
+    return `<div class="edge-list">${items}</div>`;
+  }
+
+  body.innerHTML = `
+    <div class="field"><span class="label">Bundle:</span> ${node.bundleName}</div>
+    <div class="field"><span class="label">Release:</span> ${node.release}</div>
+    <div class="field"><span class="label">Channels:</span> ${(node.channels || []).join(', ') || 'none'}</div>
+    <div class="field"><span class="label">Channel Head:</span> ${node.isChannelHead ? 'Yes' : 'No'}</div>
+    ${node.skipped ? '<div class="field"><span class="label">Skipped:</span> Yes (v0)</div>' : ''}
+    <div class="field"><span class="label">Deprecated:</span> ${node.deprecated ? 'Yes' : 'No'}</div>
+    ${node.deprecationMessage ? `<div class="field"><span class="label">Message:</span> ${node.deprecationMessage}</div>` : ''}
+    ${node.maxOpenShiftVersion ? `<div class="field"><span class="label">Max OCP:</span> ${node.maxOpenShiftVersion}</div>` : ''}
+    ${incoming.length > 0 ? `<div class="field"><span class="label">Incoming edges (${incoming.length}):</span></div>${edgeHtml(incoming, '←')}` : ''}
+    ${outgoing.length > 0 ? `<div class="field"><span class="label">Outgoing edges (${outgoing.length}):</span></div>${edgeHtml(outgoing, '→')}` : ''}
+  `;
+  info.style.display = 'block';
+}
+
+function hideInfo() {
+  document.getElementById('info').style.display = 'none';
+}
+
+function applyFilters() {
+  if (!rawData) return;
+  const search = document.getElementById('search').value.toLowerCase();
+  const showDeprecated = document.getElementById('showDeprecated').checked;
+  const showDeps = document.getElementById('showDeps').checked;
+
+  const filteredNodes = rawData.nodes
+    .filter(n => {
+      if (!showDeprecated && n.deprecated) return false;
+      if (search && !n.package.toLowerCase().includes(search) && !n.bundleName.toLowerCase().includes(search)) return false;
+      return true;
+    })
+    .map(n => ({...n}));
+
+  const nodeIds = new Set(filteredNodes.map(n => n.id));
+  const filteredLinks = rawData.links
+    .filter(l => {
+      if (!showDeps && isDep(l)) return false;
+      return nodeIds.has(l.source) && nodeIds.has(l.target);
+    })
+    .map(l => ({...l}));
+
+  graph.graphData({ nodes: filteredNodes, links: filteredLinks });
+
+  // Zoom to fit the filtered nodes after layout settles
+  if (search && filteredNodes.length < allData.nodes.length) {
+    setTimeout(() => graph.zoomToFit(1000, 40), 300);
+  }
+
+  const notice = document.getElementById('perfNotice');
+  if (search && filteredNodes.length < allData.nodes.length) {
+    notice.textContent = `Showing ${filteredNodes.length} nodes, ${filteredLinks.length} links (filtered from ${allData.nodes.length}).`;
+    notice.style.display = 'block';
+  } else if (filteredNodes.length > 2000) {
+    notice.textContent = `Large graph (${filteredNodes.length} nodes): use search to filter for best performance.`;
+    notice.style.display = 'block';
+  } else {
+    notice.style.display = 'none';
+  }
+}
+
+document.getElementById('search').addEventListener('input', applyFilters);
+document.getElementById('showDeprecated').addEventListener('change', applyFilters);
+document.getElementById('showDeps').addEventListener('change', applyFilters);
+document.getElementById('resetBtn').addEventListener('click', () => {
+  document.getElementById('search').value = '';
+  document.getElementById('showDeprecated').checked = true;
+  document.getElementById('showDeps').checked = true;
+  colorIdx = 0;
+  Object.keys(groupColorMap).forEach(k => delete groupColorMap[k]);
+  allData = JSON.parse(JSON.stringify(rawData));
+  renderGraph(allData);
+  hideInfo();
+});
+
+init();
+</script>
+</body>
+</html>
