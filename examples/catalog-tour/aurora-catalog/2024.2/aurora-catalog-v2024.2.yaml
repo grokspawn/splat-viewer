@@ -1,0 +1,85 @@
+---
+defaultChannel: stable
+name: lumen-cache
+schema: olm.package
+---
+entries:
+- name: lumen-cache.v1.1.0
+  replaces: lumen-cache.v1.0.0
+  skips:
+  - lumen-cache.v0.9.0
+  skipRange: '>=1.0.0 <1.1.0'
+name: stable
+package: lumen-cache
+schema: olm.channel
+---
+name: lumen-cache.v1.1.0
+package: lumen-cache
+properties:
+- type: olm.package
+  value:
+    packageName: lumen-cache
+    version: 1.1.0
+schema: olm.bundle
+---
+defaultChannel: stable
+name: orbit-metrics
+schema: olm.package
+---
+entries:
+- name: orbit-metrics.v0.9.0
+- name: orbit-metrics.v1.1.0
+  replaces: orbit-metrics.v0.9.0
+name: stable
+package: orbit-metrics
+schema: olm.channel
+---
+name: orbit-metrics.v0.9.0
+package: orbit-metrics
+properties:
+- type: olm.package
+  value:
+    packageName: orbit-metrics
+    version: 0.9.0
+schema: olm.bundle
+---
+name: orbit-metrics.v1.1.0
+package: orbit-metrics
+properties:
+- type: olm.package
+  value:
+    packageName: orbit-metrics
+    version: 1.1.0
+schema: olm.bundle
+---
+package: orbit-metrics
+entries:
+- reference:
+    schema: olm.bundle
+    name: orbit-metrics.v0.9.0
+  message: Legacy metrics collector is deprecated; use v1.1.0.
+schema: olm.deprecations
+---
+defaultChannel: stable
+name: quartz-ingress
+schema: olm.package
+---
+entries:
+- name: quartz-ingress.v1.1.0
+  replaces: quartz-ingress.v1.0.0
+name: stable
+package: quartz-ingress
+schema: olm.channel
+---
+name: quartz-ingress.v1.1.0
+package: quartz-ingress
+properties:
+- type: olm.package
+  value:
+    packageName: quartz-ingress
+    version: 1.1.0
+- type: olm.package.required
+  value:
+    packageName: lumen-cache
+    versionRange: '>=1.1.0'
+schema: olm.bundle

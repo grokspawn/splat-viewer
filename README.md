@@ -25,6 +25,34 @@ The browser viewer provides package/bundle search, deprecated-node visibility,
 dependency-edge visibility, reset/zoom controls, node details, and a legend.
 It also honors `prefers-reduced-motion` for users who request reduced motion.
 
+## Example views
+
+The repository includes small, neutral FBC fixtures in [`examples/`](examples/)
+and focused graphics generated from them. The fixtures use `aurora-catalog`,
+`lumen-cache`, `orbit-metrics`, and `quartz-ingress` rather than vendor- or
+platform-specific names.
+
+| Topic | Illustration |
+| --- | --- |
+| Cross-revision continuity | ![Cross-revision continuity](docs/images/cross-revision-continuity.svg) |
+| Upgrade paths | ![Upgrade paths](docs/images/upgrade-paths.svg) |
+| Dependency edges | ![Dependency edges](docs/images/dependency-edges.svg) |
+| Node semantics | ![Node semantics](docs/images/node-semantics.svg) |
+| Focused filtering | ![Focused filtering](docs/images/filtering.svg) |
+
+Run the complete example catalog with:
+
+```sh
+go run . serve \
+  --catalog-dir examples/catalog-tour \
+  --catalog aurora-catalog \
+  --releases 2024.1,2024.2 \
+  --skip-range-edges
+```
+
+See [`examples/README.md`](examples/README.md) for focused commands and the
+catalog layout.
+
 ## Requirements
 
 - Go **1.26.3** (the version declared by `go.mod`)

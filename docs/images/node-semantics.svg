@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-labelledby="title desc">
+  <title id="title">Node semantics</title>
+  <desc id="desc">Examples of active, channel head, deprecated, and phantom node styling.</desc>
+  <rect width="960" height="540" fill="#0a0a1a"/>
+  <text x="48" y="52" fill="#e0e0e0" font-family="sans-serif" font-size="28" font-weight="700">Node semantics</text>
+  <text x="48" y="82" fill="#9aa" font-family="sans-serif" font-size="16">Shape, opacity, and glow distinguish common bundle states.</text>
+  <circle cx="145" cy="220" r="25" fill="#0072B2"/><text x="90" y="285" fill="#e0e0e0" font-family="sans-serif" font-size="17">active</text>
+  <polygon points="350,188 382,220 350,252 318,220" fill="#0072B2" stroke="#fff" stroke-width="2"/><text x="285" y="285" fill="#e0e0e0" font-family="sans-serif" font-size="17">deprecated</text>
+  <circle cx="555" cy="220" r="34" fill="#009E73" stroke="#88CCEE" stroke-width="7"/><text x="505" y="285" fill="#e0e0e0" font-family="sans-serif" font-size="17">channel head</text>
+  <circle cx="770" cy="220" r="25" fill="#0072B2" opacity=".2" stroke="#aaa" stroke-dasharray="5 5" stroke-width="3"/><text x="735" y="285" fill="#e0e0e0" font-family="sans-serif" font-size="17">phantom</text>
+  <rect x="80" y="350" width="800" height="2" fill="#344"/>
+  <text x="80" y="395" fill="#9aa" font-family="sans-serif" font-size="16">Colors identify package groups; geometry and opacity encode node state.</text>
+  <text x="80" y="430" fill="#9aa" font-family="sans-serif" font-size="16">Clicking a node opens bundle metadata and connected edges.</text>
+</svg>

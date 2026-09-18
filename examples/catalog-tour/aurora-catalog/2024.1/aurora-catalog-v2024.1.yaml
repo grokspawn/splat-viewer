@@ -1,0 +1,61 @@
+---
+defaultChannel: stable
+name: lumen-cache
+schema: olm.package
+---
+entries:
+- name: lumen-cache.v1.0.0
+name: stable
+package: lumen-cache
+schema: olm.channel
+---
+name: lumen-cache.v1.0.0
+package: lumen-cache
+properties:
+- type: olm.package
+  value:
+    packageName: lumen-cache
+    version: 1.0.0
+schema: olm.bundle
+---
+defaultChannel: stable
+name: orbit-metrics
+schema: olm.package
+---
+entries:
+- name: orbit-metrics.v1.0.0
+name: stable
+package: orbit-metrics
+schema: olm.channel
+---
+name: orbit-metrics.v1.0.0
+package: orbit-metrics
+properties:
+- type: olm.package
+  value:
+    packageName: orbit-metrics
+    version: 1.0.0
+schema: olm.bundle
+---
+defaultChannel: stable
+name: quartz-ingress
+schema: olm.package
+---
+entries:
+- name: quartz-ingress.v1.0.0
+name: stable
+package: quartz-ingress
+schema: olm.channel
+---
+name: quartz-ingress.v1.0.0
+package: quartz-ingress
+properties:
+- type: olm.package
+  value:
+    packageName: quartz-ingress
+    version: 1.0.0
+- type: olm.package.required
+  value:
+    packageName: orbit-metrics
+    versionRange: '>=1.0.0'
+schema: olm.bundle
